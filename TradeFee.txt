@@ -1,0 +1,13 @@
+交易费用:
+
+上交所
+https://biz.sse.com.cn/sseportal/ps/zhs/sczn/jyfy2.shtml
+深交所
+https://www.szse.cn/main/aboutus/service/sjssf/
+中登
+http://www.chinaclear.cn/zdjs/gszb/201507/9aeee4d21a6f47f5b3741637993b004b.shtml
+
+总结下来，交易费用主要包含两个部分:
+券商佣金(已包含了监管费和经手费(和过户费？))、印花税(单向)
+
+印花税: 0.10%
