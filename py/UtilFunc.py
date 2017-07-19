@@ -7,6 +7,7 @@ Created on 2017年6月29日
 import ast
 import requests
 from collections import OrderedDict, defaultdict
+from pprint import saferepr
 
 def addDashToDate(s, sDash = '-'):
     return s[:4] + sDash + s[4:6] + sDash + s[6:8]
@@ -40,6 +41,17 @@ def readTuplesToDict(sFileName, sEncoding = 'utf-8', sType = 'dict'):
         return defaultdict(dict, ls)
     else:
         return dict(ls)
+#def
+
+def writeTupleDict(d, sFileName, sEncoding = 'utf-8', bReverse = False):
+    ls = sorted(d.items(), key = lambda t:t[0], reverse = bReverse)
+    with open(sFileName, 'w', encoding = sEncoding, errors = 'ignore') as fl:
+        for item in ls:
+            #sLine = repr(item)
+            sLine = saferepr(item)
+            print(sLine, file = fl)
+        #end for
+    #end with
 #def
 
 # Test codes:
