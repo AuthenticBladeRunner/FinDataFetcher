@@ -243,7 +243,7 @@ class PdfReaper:
                     il = self.findNearSpaceIndex(sTxt, l)
                     ir = self.findNearSpaceIndex(sTxt, r)
                     #print('"{}" is {:.2%} overlapped with area {}\n\t\t\t{}'.format(sTxt, min(r-l, t-b), r2, sTxt[il:ir].strip()))
-                    tInf = (b, sTxt[il:ir].strip())   # b: 垂直位置
+                    tInf = (b, sTxt[il:ir])   # b: 垂直位置  .strip()
                     if r2 in self.dRectTxt:
                         self.dRectTxt[r2].append( tInf )
                     else:
