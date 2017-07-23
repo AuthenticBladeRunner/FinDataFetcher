@@ -371,10 +371,13 @@ if __name__ == '__main__':
     os.chdir(sPdfDir)
     sTxtDir = '../txt'
     pdfrp = PdfReaper()
-    for sSrcFile in os.listdir():
+    lsFiles = os.listdir()
+    i = 0
+    for sSrcFile in lsFiles:
+        i += 1
         if sSrcFile[-3:].lower() != 'pdf':
             continue
-        print('Converting {}...'.format(sSrcFile))
+        print('Converting {} {:.2%}...'.format(sSrcFile, i/len(lsFiles)))
         sPrefix = sSrcFile[:-4]
         pdfrp.toText(sSrcFile, '{}/{}.txt'.format(sTxtDir, sPrefix))
     pass
