@@ -61,7 +61,7 @@ def getOverlapPctPos(r1, r2):
 
 class PdfReaper:
     def __init__(self):
-        self.fMaxDev = 3      # 可以容忍的最大误差
+        self.fMaxDev = 4      # 可以容忍的最大误差
 
     def toText(self, sPdfPath, sTxtPath):
         self.initDoc(sPdfPath)
@@ -429,8 +429,10 @@ class PdfReaper:
 
 if __name__ == '__main__':
     pdfrp = PdfReaper()
-    pdfrp.drawPageRects(r'D:\Downloads\Documents\165510.pdf', 7)
+    #pdfrp.drawPageRects(r'D:\Downloads\Documents\165509.pdf', 7)
+    pdfrp.drawPageRects(r'C:\workspace\python\TradeBot\reports\2017s2\pdf\165509.pdf', 7)
     #pdfrp.drawPageLines(r'D:\Downloads\Documents\165510.pdf', 7)
+    #pdfrp.drawPageLines(r'C:\workspace\python\TradeBot\reports\2017s2\pdf\161125.pdf', 11)
     '''
     import os
     sPdfDir = r'C:\workspace\python\PriceCompare\temp\2017s02\pdf'
