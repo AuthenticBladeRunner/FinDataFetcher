@@ -10,6 +10,9 @@ from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.converter import PDFPageAggregator
 from pdfminer.layout import LAParams, LTTextBox, LTTextLine, LTRect, LTChar
 
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+
 # 检测一维坐标轴上两个线段是否有重合 (重合长度小于1不算)
 def checkSegOverlap(lower_bound, upper_bound, f_small, f_big):
     iMinOvl = 1
@@ -57,45 +60,100 @@ def getOverlapPctPos(r1, r2):
 #end def
 
 class PdfReaper:
+    def __init__(self):
+        self.fMaxDev = 3      # 可以容忍的最大误差
+
     def toText(self, sPdfPath, sTxtPath):
-        # Open a PDF file.
-        fp = open(sPdfPath, 'rb')
-        
-        # Create a PDF parser object associated with the file object.
-        parser = PDFParser(fp)
-        doc = PDFDocument()
-        parser.set_document(doc)
-        doc.set_parser(parser)
-        doc.initialize('')
-        fp.close()
-        
-        rsrcmgr = PDFResourceManager()
-        laparams = LAParams()
-        device = PDFPageAggregator(rsrcmgr, laparams=laparams)
-        interpreter = PDFPageInterpreter(rsrcmgr, device)
+        self.initDoc(sPdfPath)
         
         with open(sTxtPath, 'w', encoding='utf-8') as flTxt:
             i = 0
-            for page in doc.get_pages():
+            for page in self.doc.get_pages():
                 i += 1
-                interpreter.process_page(page)
-                self.layout = device.get_result()
+                self.interpreter.process_page(page)
+                self.layout = self.device.get_result()
                 lsPageLines = self.getPageTextLines()
                 for sLine in lsPageLines:
                     flTxt.write(sLine + '\n')
                 flTxt.write('\n')       # add a newline for each page end
         #end with
     #end def
+
+    def drawPageRects(self, sPdfPath, iPage):
+        self.initDoc(sPdfPath)
+        lsPages = list(self.doc.get_pages())
+        page = lsPages[iPage-1]
+        self.interpreter.process_page(page)
+        self.layout = self.device.get_result()
+
+        self.genRects()
+
+        fig1 = plt.figure()
+        ax1 = fig1.add_subplot(111, aspect='equal')  # 111: nrows, ncols, plot_number
+        ax1.set_xlim(self.layout.x0, self.layout.x1)
+        ax1.set_ylim(self.layout.y0, self.layout.y1)
+        for x0, y0, x1, y1 in self.lsRects:
+            ax1.add_patch(
+                patches.Rectangle(
+                    (x0, y0),       # (x,y)
+                    x1 - x0,        # width
+                    y1 - y0,        # height
+                    fill=False      # no background
+                )
+            )
+        plt.show()
+    #end def
+    
+    def drawPageLines(self, sPdfPath, iPage):
+        self.initDoc(sPdfPath)
+        lsPages = list(self.doc.get_pages())
+        page = lsPages[iPage-1]
+        self.interpreter.process_page(page)
+        self.layout = self.device.get_result()
+
+        self.genLineGroups()
+
+        fig1 = plt.figure()
+        ax1 = fig1.add_subplot(111, aspect='equal')  # 111: nrows, ncols, plot_number
+        ax1.set_xlim(self.layout.x0, self.layout.x1)
+        ax1.set_ylim(self.layout.y0, self.layout.y1)
+        for x, lsYPairs in self.dX.items():
+            for y0, y1 in lsYPairs:
+                plt.plot((x, x), (y0, y1))
+        for y, lsXPairs in self.dY.items():
+            for x0, x1 in lsXPairs:
+                plt.plot((x0, x1), (y, y))
+        plt.show()
+    #end def
+
+    def initDoc(self, sPdfPath):
+        # Open a PDF file.
+        fp = open(sPdfPath, 'rb')
+        
+        # Create a PDF parser object associated with the file object.
+        parser = PDFParser(fp)
+        self.doc = PDFDocument()
+        parser.set_document(self.doc)
+        self.doc.set_parser(parser)
+        self.doc.initialize('')
+        fp.close()
+        
+        rsrcmgr = PDFResourceManager()
+        laparams = LAParams()
+        self.device = PDFPageAggregator(rsrcmgr, laparams=laparams)
+        self.interpreter = PDFPageInterpreter(rsrcmgr, self.device)
+    #end def
     
     def getPageTextLines(self):
-        self.genLineGroups(self.layout)
-        self.genCornerInfo(self.dX, self.dY)
-        self.genRects(self.dCornerInfo, self.dHCorners, self.dVCorners)
+        #self.genLineGroups(self.layout)
+        #self.genCornerInfo(self.dX, self.dY)
+        #self.genRects(self.dCornerInfo, self.dHCorners, self.dVCorners)
+        self.genRects()
         self.reallocTextToRect(self.layout, self.lsRects)
         return self.sortTexts(self.dRectTxt)
     
     # 根据页面信息 生成 按照 x 坐标分类的 横线, 以及 按照 y 坐标分类的 竖线
-    def genLineGroups(self, layout):
+    def genLineGroups(self):
         i = 0
         self.dX = {}    # 按照 x 坐标分类的 横线
         self.dY = {}    # 按照 y 坐标分类的 竖线
@@ -105,7 +163,7 @@ class PdfReaper:
         #lsHLines = []
         #lsRects = []
         #dCorners = {}
-        for lt_obj in layout:
+        for lt_obj in self.layout:
             #print(type(lt_obj))
             if isinstance(lt_obj, LTRect):
                 if lt_obj.width < 1 and lt_obj.height < 1:
@@ -135,17 +193,19 @@ class PdfReaper:
     #end def
     
     # 根据横竖线列表 生成所有交点信息
-    def genCornerInfo(self, dX, dY):
+    def genCornerInfo(self):
+        self.genLineGroups()
+
         self.dCornerInfo = {}  # 交点的相交信息
         self.dHCorners = {}    # 按横线（y坐标）归类的交点
         self.dVCorners = {}    # 按竖线（x坐标）归类的交点
         # 遍历所有横线
-        for y, lsH in dY.items():
+        for y, lsH in self.dY.items():
             for x0, x1 in lsH:
                 # 遍历所有竖线
-                for x, lsV in dX.items():
+                for x, lsV in self.dX.items():
                     if (x < x0) or (x > x1):
-                        if x > x0-1 and x < x1 + 1:
+                        if (x > x0 - self.fMaxDev) and (x < x1 + self.fMaxDev):
                             print(x, x0, x1)
                         continue    # 如果竖线的 x 坐标不在横线范围内，则不可能相交
                     for y0, y1 in lsV:
@@ -177,18 +237,20 @@ class PdfReaper:
     #end def
     
     # 根据所有交点信息 生成所有(最小)矩形列表
-    def genRects(self, dCornerInfo, dHCorners, dVCorners):
+    def genRects(self):
+        self.genCornerInfo()
+
         self.lsRects = []
-        for tPoint, stCrosses in dCornerInfo.items():
+        for tPoint, stCrosses in self.dCornerInfo.items():
             # 从左下角开始形成矩形
             if ('u' in stCrosses) and ('r' in stCrosses):
                 x0, y0 = tPoint
                 # 先往右找到右下角顶点
-                lsH = dHCorners[y0]
+                lsH = self.dHCorners[y0]
                 bFound = False
                 for i in range(lsH.index(x0)+1, len(lsH)):
                     x1 = lsH[i]
-                    stCrs = dCornerInfo[(x1, y0)]
+                    stCrs = self.dCornerInfo[(x1, y0)]
                     if 'l' not in stCrs:
                         break    # 横线中间有断裂
                     if ('l' in stCrs) and ('u' in stCrs):
@@ -196,11 +258,11 @@ class PdfReaper:
                         break
                 if bFound:    # 找到了右下角的顶点
                     # 接着往上找右上角顶点
-                    lsV = dVCorners[x1]
+                    lsV = self.dVCorners[x1]
                     bFound = False
                     for i in range(lsV.index(y0)+1, len(lsV)):
                         y1 = lsV[i]
-                        stCrs = dCornerInfo[(x1, y1)]
+                        stCrs = self.dCornerInfo[(x1, y1)]
                         if 'd' not in stCrs:
                             break    # 竖线中间有断裂
                         if ('d' in stCrs) and ('l' in stCrs):
@@ -306,8 +368,8 @@ class PdfReaper:
     # Find a nearby number in a list. 如果找不到相近的，那就增加一个新的到列表中去
     def getNearbyNumber(self, lsX, x):
         for xi in lsX:
-            # 如果误差在 1 内，则认为是相近的点
-            if x > xi - 1 and x < xi + 1:
+            # 如果在误差内，则认为是相近的点
+            if x > xi - self.fMaxDev and x < xi + self.fMaxDev:
                 return xi
     
         # 如果找不到相近的，那就增加一个新的到列表中去
@@ -366,6 +428,10 @@ class PdfReaper:
 #end class            
 
 if __name__ == '__main__':
+    pdfrp = PdfReaper()
+    pdfrp.drawPageRects(r'D:\Downloads\Documents\165510.pdf', 7)
+    #pdfrp.drawPageLines(r'D:\Downloads\Documents\165510.pdf', 7)
+    '''
     import os
     sPdfDir = r'C:\workspace\python\PriceCompare\temp\2017s02\pdf'
     os.chdir(sPdfDir)
@@ -381,3 +447,4 @@ if __name__ == '__main__':
         sPrefix = sSrcFile[:-4]
         pdfrp.toText(sSrcFile, '{}/{}.txt'.format(sTxtDir, sPrefix))
     pass
+    '''
