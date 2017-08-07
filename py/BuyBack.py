@@ -21,8 +21,6 @@ class BuyBack:
     # Nominal days: How much fee (RMB) every 100000 yuan
     dBbFees = {1: 1, 2: 2, 3: 3, 4: 4, 7: 5, 14: 10, 28: 20, 91: 30, 182: 30}
     
-    
-    
     ticker = None
     dBbTicker = {}
     dfBbTicker = None
@@ -34,6 +32,7 @@ class BuyBack:
     
     def __init__(self, trdCal, ticker = None, sDate = None):
         self.trdCal = trdCal      # 交易日历
+        self.fBbRate = 0.0
 
         if ticker:
             self.ticker = ticker
@@ -59,16 +58,16 @@ class BuyBack:
 
         # 为每个 名义回购天数 计算 其 计息天数 (两个交收日之间的自然日天数)、资金可用所需自然日 (两个清算日之间的自然日天数)、资金可用所需交易日(两个清算日之间的交易日天数)
         for n in set(self.dBbCodes.values()):
-            sClrDate1 = sDate                               # 首次清算日 = T+0 日
-            sSetDate1 = trdCal.trdDateAdd(sClrDate1, 1)     # 首次交收日 = 首次清算日的下一个交易日
-            sNomnlExp = trdCal.ntlDateAdd(sDate, n)         # 名义到期日 = 首次交易日 + 名义回购天数 (自然日)
-            sEffctExp = trdCal.closestTrdDate(sNomnlExp)    # 实际到期日 = 不早于名义到期日的第一个交易日
-            sClrDate2 = sEffctExp                           # 到期清算日 就是 实际到期日
-            sSetDate2 = trdCal.trdDateAdd(sClrDate2, 1)     # 到期交收日 = 到期清算日的下一个交易日
+            sClrDate1 = sDate                                    # 首次清算日 = T+0 日
+            sSetDate1 = self.trdCal.trdDateAdd(sClrDate1, 1)     # 首次交收日 = 首次清算日的下一个交易日
+            sNomnlExp = self.trdCal.ntlDateAdd(sDate, n)         # 名义到期日 = 首次交易日 + 名义回购天数 (自然日)
+            sEffctExp = self.trdCal.closestTrdDate(sNomnlExp)    # 实际到期日 = 不早于名义到期日的第一个交易日
+            sClrDate2 = sEffctExp                                # 到期清算日 就是 实际到期日
+            sSetDate2 = self.trdCal.trdDateAdd(sClrDate2, 1)     # 到期交收日 = 到期清算日的下一个交易日
 
-            self.dAccrual[n] = trdCal.ntlDateDelta(sSetDate2, sSetDate1)
-            self.dUsableN[n] = trdCal.ntlDateDelta(sClrDate2, sClrDate1)
-            self.dUsableT[n] = trdCal.trdDateDelta(sClrDate2, sClrDate1)
+            self.dAccrual[n] = self.trdCal.ntlDateDelta(sSetDate2, sSetDate1)
+            self.dUsableN[n] = self.trdCal.ntlDateDelta(sClrDate2, sClrDate1)
+            self.dUsableT[n] = self.trdCal.trdDateDelta(sClrDate2, sClrDate1)
 
             
         # 初始化 self.dBbTicker
@@ -111,19 +110,22 @@ class BuyBack:
                     self.sMaxShCodeIn7d = sCode
     #end def
 
-    def genTradeList(self):
+    def genOppties(self):
         self.refreshTicker()
         # Sort effective rates from largest to smallest
         sl = sorted(self.dBbTicker.items(), key=lambda t:t[1]['effct_rate'], reverse=True)
         # Generate one SH and one SZ buyback.
         lsToTrd = []
         dFlag = {'sh': False, 'sz': False}
+        self.fBbRate = 0.0
         for sCode, d in sl:
             if d['nominal'] > 7:
                 continue
             sPfx = sCode[:2]
             if not dFlag[sPfx]:
-                lsToTrd.append({'code': sCode, 'type': 'buyback', 'trade_type': 'sell', 'price': d['bid']})
+                fBidRate = d['bid']
+                self.fBbRate = max(self.fBbRate, fBidRate)
+                lsToTrd.append({'code': sCode, 'type': 'buyback', 'trade_type': 'sell', 'price': fBidRate, 'sharpe': 0.1})
                 dFlag[sPfx] = True
             if dFlag['sh'] and dFlag['sz']:
                 break
@@ -143,6 +145,6 @@ if __name__ == '__main__':
     bb = BuyBack(trdCal)        # , sDate = time.strftime('%Y%m%d')
     #bb = BuyBack(od, '20170630')
     #bb.refreshTicker()
-    #bb.printEffectRates()
-    print(bb.genTradeList())
+    bb.printEffectRates()
+    #print(bb.genOppties())
 #end if

@@ -4,14 +4,20 @@ Created on 2017年7月12日
 @author: tianyuan.chen
 '''
 
+from TradeCalendar import TradeCalendar
 from TaskDispatcher import TaskDispatcher
-from _asyncio import Task
+from Ticker import Ticker
+from BuyBack import BuyBack
 
 class Organizer:
     # Declaring a variable outside of __init__ is declaring a class-level variable, which is shared by all instances.
     
     def __init__(self):
+        self.trdCal = TradeCalendar('../params/TrdCalCn.txt')
         self.taskPutter = TaskDispatcher("../params/DailySched.txt")
+        self.ticker = Ticker()
+        self.bbk = BuyBack(self.trdCal)
+    #end def
     
     def run(self):
         wannaQuit = False
@@ -24,11 +30,15 @@ class Organizer:
                 if sTaskName.lower() == 'quit':
                     wannaQuit = True
                     #break
+                self.doTask(sTaskName)
             #end for
     #end def
     
     def doTask(self, sTask):
-        pass
+        sTask = sTask.lower()
+        if sTask == 'buyback':
+            self.bbk.genOppties()
+            pass
     #end def
 
 if __name__ == '__main__':
